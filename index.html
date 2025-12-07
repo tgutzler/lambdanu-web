@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#f3f4f6" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+
+    <title>Wavelength/Frequency Converter</title>
+    <style>
+        /* Modern Color Palette with Dark Mode Support */
+        :root {
+            --bg-color: #f3f4f6;
+            --card-color: #ffffff;
+            --accent-color: #6366f1; /* Indigo */
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border: #e5e7eb;
+            --input-bg: #fff;
+            --readonly-bg: #f9fafb;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Dark Mode Overrides */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #111827; /* Very Dark Blue/Grey */
+                --card-color: #1f2937;
+                --accent-color: #818cf8; /* Lighter Indigo */
+                --text-main: #f9fafb;
+                --text-sub: #9ca3af;
+                --border: #374151;
+                --input-bg: #1f2937;
+                --readonly-bg: #111827; /* Darker inset for results */
+                --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Removes grey tap box on iOS */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* dvh = Dynamic Viewport Height (ignores mobile address bar resize) */
+            min-height: 100dvh; 
+            margin: 0;
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .card {
+            background: var(--card-color);
+            width: 100%;
+            max-width: 450px;
+            padding: 1.5rem; /* Slightly tighter on mobile */
+            border-radius: 24px; /* Softer native feel */
+            box-shadow: var(--shadow);
+            transition: background-color 0.3s ease;
+        }
+
+        h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 0 0 0.5rem 0;
+        }
+
+        h2 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-sub);
+            margin: 2rem 0 1rem 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        p.hint {
+            text-align: center;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .field-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            margin-bottom: 0.5rem;
+            margin-left: 4px; /* Align with rounded input corners */
+        }
+
+        .input-wrapper {
+            display: flex;
+            background: var(--input-bg);
+            border: 1px solid var(--border); /* Thinner border looks more native */
+            border-radius: 16px; /* Modern "squircle" look */
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            height: 56px; /* Standard Mobile Touch Target Height */
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); /* Softer glow */
+        }
+
+        .input-wrapper.readonly {
+            background-color: var(--readonly-bg);
+            border-color: transparent; /* Cleaner look for output */
+        }
+
+        input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 0 1rem;
+            font-size: 1.25rem; /* Large text for easy reading */
+            font-family: inherit;
+            outline: none;
+            width: 30%;
+            min-width: 0;
+            color: var(--text-main);
+            height: 100%;
+        }
+
+        input[readonly] {
+            color: var(--accent-color);
+            font-weight: 600;
+            cursor: default;
+        }
+
+        .unit-badge {
+            display: flex;
+            align-items: center;
+            padding: 0 1.25rem;
+            color: var(--text-sub);
+            font-weight: 500;
+            font-size: 1rem;
+            background: transparent;
+            border-left: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        select {
+            appearance: none;
+            border: none;
+            background: transparent;
+            padding: 0 2.5rem 0 1rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-main);
+            border-left: 1px solid var(--border);
+            outline: none;
+            cursor: pointer;
+            height: 100%;
+            /* Dynamic SVG arrow that changes color in dark mode */
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.8rem center;
+            background-size: 1.2em;
+        }
+
+        .op-select {
+            width: 80px; 
+            padding-right: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            border-left: none;
+            border-right: 1px solid var(--border);
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 1.5rem;
+            color: var(--border);
+            margin: -0.5rem 0 0.75rem 0;
+            line-height: 1;
+        }
+
+        /* Remove number spinners */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Wavelength &longleftrightarrow; Frequency</h1>
+
+    <div class="field-group">
+        <label>Input</label>
+        <div class="input-wrapper">
+            <input type="number" id="inVal" placeholder="Enter value..." step="any" inputmode="decimal">
+            <select id="inUnit">
+                <optgroup label="Frequency">
+                    <option value="Hz">Hz</option>
+                    <option value="kHz">kHz</option>
+                    <option value="MHz">MHz</option>
+                    <option value="GHz">GHz</option>
+                    <option value="THz">THz</option>
+                </optgroup>
+                <optgroup label="Wavelength">
+                    <option value="m">m</option>
+                    <option value="mm">mm</option>
+                    <option value="um">µm</option>
+                    <option value="nm">nm</option>
+                    <option value="pm">pm</option>
+                </optgroup>
+            </select>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <label>Result</label>
+        <div class="input-wrapper readonly">
+            <input type="text" id="outVal" placeholder="..." readonly>
+            <select id="outUnit">
+                <optgroup label="Wavelength">
+                    <option value="m">m</option>
+                    <option value="mm">mm</option>
+                    <option value="um">µm</option>
+                    <option value="nm">nm</option>
+                    <option value="pm">pm</option>
+                </optgroup>
+                <optgroup label="Frequency">
+                    <option value="Hz">Hz</option>
+                    <option value="kHz">kHz</option>
+                    <option value="MHz">MHz</option>
+                    <option value="GHz">GHz</option>
+                    <option value="THz">THz</option>
+                </optgroup>
+            </select>
+        </div>
+    </div>
+
+    <h2>Bandwidth</h2>
+    
+    <div class="field-group">
+        <label>Delta</label>
+        <div class="input-wrapper">
+            <select id="bwOp" class="op-select">
+                <option value="pm">+/-</option>
+                <option value="plus">+</option>
+                <option value="minus">-</option>
+            </select>
+            <input type="number" id="bwDelta" placeholder="0" step="any" inputmode="decimal">
+            <select id="bwDeltaUnit">
+                <optgroup label="Frequency">
+                    <option value="Hz">Hz</option>
+                    <option value="kHz">kHz</option>
+                    <option value="MHz">MHz</option>
+                    <option value="GHz">GHz</option>
+                    <option value="THz">THz</option>
+                </optgroup>
+                <optgroup label="Wavelength">
+                    <option value="m">m</option>
+                    <option value="mm">mm</option>
+                    <option value="um">µm</option>
+                    <option value="nm">nm</option>
+                    <option value="pm">pm</option>
+                </optgroup>
+            </select>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <label>Lower Bound</label>
+        <div class="input-wrapper readonly">
+            <input type="text" id="bwLower" placeholder="..." readonly>
+            <div class="unit-badge bw-output-unit">m</div>
+        </div>
+    </div>
+
+    <div class="field-group">
+        <label>Upper Bound</label>
+        <div class="input-wrapper readonly">
+            <input type="text" id="bwUpper" placeholder="..." readonly>
+            <div class="unit-badge bw-output-unit">m</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- SERVICE WORKER REGISTRATION (PWA) ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered'))
+                .catch(err => console.log('SW failed', err));
+        });
+    }
+
+    // --- APP LOGIC ---
+    const C = 299792458; 
+    const STORAGE_KEY = 'waveCalcSettings';
+    const definitions = {
+        'Hz':  { type: 'freq', factor: 1 },
+        'kHz': { type: 'freq', factor: 1e3 },
+        'MHz': { type: 'freq', factor: 1e6 },
+        'GHz': { type: 'freq', factor: 1e9 },
+        'THz': { type: 'freq', factor: 1e12 },
+        'm':   { type: 'len',  factor: 1 },
+        'mm':  { type: 'len',  factor: 1e-3 },
+        'um':  { type: 'len',  factor: 1e-6 },
+        'nm':  { type: 'len',  factor: 1e-9 },
+        'pm':  { type: 'len',  factor: 1e-12 }
+    };
+
+    const inVal = document.getElementById('inVal');
+    const inUnit = document.getElementById('inUnit');
+    const outVal = document.getElementById('outVal');
+    const outUnit = document.getElementById('outUnit');
+    const bwOp = document.getElementById('bwOp');
+    const bwDelta = document.getElementById('bwDelta');
+    const bwDeltaUnit = document.getElementById('bwDeltaUnit');
+    const bwLower = document.getElementById('bwLower');
+    const bwUpper = document.getElementById('bwUpper');
+    const bwOutputUnitLabels = document.querySelectorAll('.bw-output-unit');
+
+    let currentBaseInput = null;
+
+    function calculate() {
+        const inputNumber = parseFloat(inVal.value);
+        if (isNaN(inputNumber)) {
+            resetOutputs();
+            saveState();
+            return;
+        }
+        const iUnit = definitions[inUnit.value];
+        const oUnit = definitions[outUnit.value];
+        const baseInput = inputNumber * iUnit.factor;
+        currentBaseInput = baseInput;
+        let baseOutput;
+        if (iUnit.type !== oUnit.type) {
+            if (baseInput === 0) { resetOutputs(); return; }
+            baseOutput = C / baseInput;
+        } else {
+            baseOutput = baseInput;
+        }
+        outVal.value = formatNumber(baseOutput / oUnit.factor);
+        updateBandwidthLabels();
+        calculateBandwidth();
+        saveState();
+    }
+
+    function calculateBandwidth() {
+        if (currentBaseInput === null || isNaN(currentBaseInput)) {
+            bwLower.value = ''; bwUpper.value = ''; return;
+        }
+        const deltaVal = parseFloat(bwDelta.value);
+        if (isNaN(deltaVal)) {
+            bwLower.value = ''; bwUpper.value = ''; return;
+        }
+        const iUnit = definitions[inUnit.value];
+        const oUnit = definitions[outUnit.value];
+        const dUnit = definitions[bwDeltaUnit.value];
+        let centerInDeltaDomain;
+        if (iUnit.type === dUnit.type) {
+            centerInDeltaDomain = currentBaseInput; 
+        } else {
+            if (currentBaseInput === 0) { resetOutputs(); return; }
+            centerInDeltaDomain = C / currentBaseInput; 
+        }
+        const deltaBase = deltaVal * dUnit.factor;
+        const op = bwOp.value;
+        let lowerBaseDeltaDomain, upperBaseDeltaDomain;
+        if (op === 'pm') { 
+            lowerBaseDeltaDomain = centerInDeltaDomain - deltaBase;
+            upperBaseDeltaDomain = centerInDeltaDomain + deltaBase;
+        } else if (op === 'plus') {
+            lowerBaseDeltaDomain = centerInDeltaDomain;
+            upperBaseDeltaDomain = centerInDeltaDomain + deltaBase;
+        } else if (op === 'minus') {
+            lowerBaseDeltaDomain = centerInDeltaDomain - deltaBase;
+            upperBaseDeltaDomain = centerInDeltaDomain;
+        }
+        const lowerResult = convertToOutput(lowerBaseDeltaDomain, dUnit.type, oUnit.type, oUnit.factor);
+        const upperResult = convertToOutput(upperBaseDeltaDomain, dUnit.type, oUnit.type, oUnit.factor);
+        bwLower.value = formatNumber(lowerResult);
+        bwUpper.value = formatNumber(upperResult);
+    }
+
+    function convertToOutput(valInDeltaDomain, deltaType, outputType, outputFactor) {
+        if (valInDeltaDomain <= 0 && deltaType === 'freq') {
+             if(valInDeltaDomain === 0 && outputType !== deltaType) return Infinity; 
+        }
+        let valInOutputBase;
+        if (deltaType === outputType) {
+            valInOutputBase = valInDeltaDomain;
+        } else {
+            if (valInDeltaDomain === 0) return 0;
+            valInOutputBase = C / valInDeltaDomain;
+        }
+        return valInOutputBase / outputFactor;
+    }
+
+    function updateBandwidthLabels() {
+        const unitText = outUnit.options[outUnit.selectedIndex].text;
+        bwOutputUnitLabels.forEach(el => el.textContent = unitText);
+    }
+
+    function resetOutputs() {
+        currentBaseInput = null;
+        outVal.value = ''; bwLower.value = ''; bwUpper.value = '';
+    }
+
+    function formatNumber(num) {
+        if (num === null || num === undefined || !isFinite(num)) return '';
+        if (num === 0) return '0';
+        const absNum = Math.abs(num);
+        if (absNum < 1e-4 || absNum > 1e6) {
+            return num.toExponential(4);
+        }
+        return parseFloat(num.toPrecision(6)); 
+    }
+
+    function saveState() {
+        const state = {
+            inVal: inVal.value, inUnit: inUnit.value, outUnit: outUnit.value,
+            bwOp: bwOp.value, bwDelta: bwDelta.value, bwDeltaUnit: bwDeltaUnit.value
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadState() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const state = JSON.parse(saved);
+            inVal.value = state.inVal; inUnit.value = state.inUnit; outUnit.value = state.outUnit;
+            bwOp.value = state.bwOp; bwDelta.value = state.bwDelta; bwDeltaUnit.value = state.bwDeltaUnit;
+        } else {
+            inVal.value = '193.4'; inUnit.value = 'THz'; outUnit.value = 'nm'; bwDeltaUnit.value = 'GHz'; 
+        }
+    }
+
+    [inVal, inUnit, outUnit, bwOp, bwDelta, bwDeltaUnit].forEach(el => {
+        el.addEventListener('input', calculate);
+        el.addEventListener('change', calculate);
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadState();
+        calculate();
+    });
+</script>
+</body>
+</html>
